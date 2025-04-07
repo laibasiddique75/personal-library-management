@@ -26,11 +26,22 @@ def load_lottieurl(url):
     except:
         return None
 
-# Load or save the library
+# Load or save the library safely
 def load_library():
     if os.path.exists("library.json"):
-        with open("library.json", "r") as file:
-            st.session_state.library = json.load(file)
+        try:
+            with open("library.json", "r") as file:
+                content = file.read().strip()
+                if content:
+                    st.session_state.library = json.loads(content)
+                else:
+                    st.session_state.library = []
+        except json.JSONDecodeError:
+            st.error("❌ Error: library.json is corrupted. Resetting the library.")
+            st.session_state.library = []
+            save_library()
+    else:
+        st.session_state.library = []
 
 def save_library():
     with open("library.json", "w") as file:
@@ -108,18 +119,22 @@ def create_visualizations(stats):
         st.plotly_chart(bar, use_container_width=True)
 
     if stats["decades"]:
-        df_decade = pd.DataFrame({"Decade": [f"{k}s" for k in stats["decades"].keys()], "Count": stats["decades"].values()})
+        df_decade = pd.DataFrame({
+            "Decade": [f"{k}s" for k in stats["decades"].keys()],
+            "Count": stats["decades"].values()
+        })
         line = px.line(df_decade, x="Decade", y="Count", markers=True)
         line.update_layout(title="Books by Publication Decade", height=400)
         st.plotly_chart(line, use_container_width=True)
 
-# Session init
+# Session initialization
 if "library" not in st.session_state:
     st.session_state.library = []
 
 if "current_view" not in st.session_state:
     st.session_state.current_view = "View Library"
 
+# Load the library at app start
 load_library()
 
 # Sidebar navigation
@@ -127,7 +142,7 @@ st.sidebar.title("📚 Navigation")
 nav = st.sidebar.radio("Go to", ["View Library", "Add Book", "Search Books", "Library Stats"])
 st.session_state.current_view = nav
 
-# Lottie
+# Lottie animation
 lottie_book = load_lottieurl("https://assets9.lottiefiles.com/temp/1f20_aKAfIn.json")
 if lottie_book:
     st.sidebar.lottie(lottie_book, height=200)
@@ -217,4 +232,5 @@ elif nav == "Library Stats":
                 st.write(f"**{author}** - {count} book{'s' if count > 1 else ''}")
 
 st.markdown("<hr><center>© 2025 Laiba Siddique - Personal Library Manager</center>", unsafe_allow_html=True)
+
 
